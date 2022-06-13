@@ -5,14 +5,15 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const lib = b.addStaticLibrary("minimp3", "src/main.zig");
-    lib.addIncludePath("vendor");
+    lib.addIncludeDir("vendor");
     lib.addCSourceFile("vendor/minimp3.c", &.{});
+    lib.linkLibC();
     lib.setTarget(target);
     lib.setBuildMode(mode);
     lib.install();
 
     const main_tests = b.addTest("src/main.zig");
-    main_tests.addIncludePath("vendor");
+    main_tests.addIncludeDir("vendor");
     main_tests.addCSourceFile("vendor/minimp3.c", &.{});
     main_tests.linkLibC();
     main_tests.setTarget(target);

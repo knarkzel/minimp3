@@ -10,7 +10,7 @@ const Info = extern struct {
     bitrate_kbps: i32,
 };
 
-const Layer = enum { layer1, mpeg2layer3, otherwise };
+const Layer = enum { layer1, mpeg2layer3, layer3 };
 
 const Frame = struct {
     info: Info,
@@ -33,15 +33,13 @@ pub fn init(buffer: []const u8) Decoder {
 
 pub fn next(self: *Decoder) ?Frame {
     const samples = c.mp3dec_decode_frame(&self.mp3d, self.buffer, self.len, &self.pcm, &self.info);
-    if (samples == 0) return null else {
-        const layer: Layer = switch (samples) {
-            384 => .layer1,
-            576 => .mpeg2layer3,
-            1152 => .otherwise,
-            else => return null,
-        };
-        return Frame{ .info = @bitCast(Info, self.info), .layer = layer, .pcm = &self.pcm };
-    }
+    const layer: Layer = switch (samples) {
+        384 => .layer1,
+        576 => .mpeg2layer3,
+        1152 => .layer3,
+        else => return null,
+    };
+    return Frame{ .info = @bitCast(Info, self.info), .layer = layer, .pcm = &self.pcm };
 }
 
 test "manual" {
@@ -50,13 +48,18 @@ test "manual" {
     c.mp3dec_init(&mp3d);
     var info: c.mp3dec_frame_info_t = undefined;
     var pcm: [c.MINIMP3_MAX_SAMPLES_PER_FRAME]i16 = undefined;
-    _ = c.mp3dec_decode_frame(&mp3d, buffer, buffer.len, &pcm, &info);
+    const samples = c.mp3dec_decode_frame(&mp3d, buffer, buffer.len, &pcm, &info);
+    for (pcm[1000..1025]) |value| std.log.warn("{}", .{value});
+    std.log.warn("{}", .{info});
+    std.log.warn("{}", .{samples});
 }
 
-test "drums.mp3" {
+test "automatic" {
     const buffer = @embedFile("drums.mp3");
     var decoder = Decoder.init(buffer);
     if (decoder.next()) |frame| {
-        for (frame.pcm[0..1000]) |pcm| std.log.warn("{d}", .{pcm});
+        for (frame.pcm[1000..1025]) |value| std.log.warn("{}", .{value});
+        std.log.warn("{}", .{frame.info});
+        std.log.warn("{}", .{frame.layer});
     }
 }
